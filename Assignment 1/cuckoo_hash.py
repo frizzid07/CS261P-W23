@@ -26,21 +26,19 @@ class CuckooHash:
 
 	def insert(self, key: int) -> bool:
 		# TODO
-		hash_value = self.hash_func(key, self.current_table)
-		if self.tables[self.current_table][hash_value] is not None:
-			current_value = self.tables[self.current_table][hash_value]
-			self.tables[self.current_table][hash_value] = key
-			self.current_table = 1-self.current_table
-			self.current_evictions += 1
-			if self.current_evictions > self.CYCLE_THRESHOLD:
-				return False
-			return self.insert(current_value)
-		else:
-			self.tables[self.current_table][hash_value] = key
-			if self.current_evictions > 0:
+		self.current_table, self.current_evictions = 0, 0
+		while self.current_evictions<=self.CYCLE_THRESHOLD:
+			hash_value = self.hash_func(key, self.current_table)
+			if self.tables[self.current_table][hash_value] is not None:
+				current_value = self.tables[self.current_table][hash_value]
+				self.tables[self.current_table][hash_value] = key
+				key = current_value
 				self.current_table = 1-self.current_table
-				self.current_evictions = 0
-			return True
+				self.current_evictions += 1
+			else:
+				self.tables[self.current_table][hash_value] = key
+				return True
+		return False
 
 	def lookup(self, key: int) -> bool:
 		# TODO
@@ -59,8 +57,8 @@ class CuckooHash:
 		# TODO
 		old_tables = self.tables.copy()
 		self.tables = [[None]*self.table_size for _ in range(2)]
-		for array in old_tables:
-			for element in array:
+		for table in old_tables:
+			for element in table:
 				if element is not None:
 					self.insert(element)
 

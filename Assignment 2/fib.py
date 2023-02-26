@@ -26,7 +26,7 @@ class FibHeap:
         self.roots = []
         self.min_node = None
         self.min_index = None
-        pass
+        self.nodes = 0
 
     def get_roots(self) -> list:
         return self.roots
@@ -34,6 +34,7 @@ class FibHeap:
     def insert(self, val: int) -> FibNode:
         newNode = FibNode(val)
         self.roots.append(newNode)
+        self.nodes += 1
         if self.min_node is None or val < self.min_node.get_value_in_node():
             self.min_node = newNode
             self.min_index = len(self.roots)-1
@@ -49,33 +50,43 @@ class FibHeap:
 
     def delete_root_by_index(self, index: int) -> None:
         self.roots[index], self.roots[-1] = self.roots[-1], self.roots[index]
+        self.nodes -= 1
         self.roots.pop()
 
     def delete_min(self) -> None:
-        # Removing deleted node from list of roots
-        self.delete_root_by_index(self.min_index)
-
         # Merging children of deleted note to list of roots
         if self.min_node.get_children():
             for child in self.min_node.get_children():
                 child.parent = None
                 child.flag = False
                 self.roots.append(child)
-        
+
+        # Removing deleted node from list of roots
+        self.delete_root_by_index(self.min_index)
+        self.min_node, self.min_index = None, float("inf")
+
         # Improving Forest Structure
-        for pos_1, first_root in enumerate(self.roots[:-1]):
-            if len(self.roots) == pos_1+1:
-                break
-            for pos_2, second_root in enumerate(self.roots[pos_1+1:]):
-                if len(first_root.get_children()) == len(second_root.get_children()):
-                    if first_root.get_value_in_node()<=second_root.get_value_in_node():
-                        first_root.children.append(second_root)
-                        second_root.parent = first_root
-                        self.delete_root_by_index(pos_2)
-                    else:
-                        second_root.children.append(first_root)
-                        first_root.parent = second_root
-                        self.delete_root_by_index(pos_1)
+        roots_array = self.roots.copy()
+        degree = [None]*(self.nodes+1)
+
+        while roots_array:
+            last = roots_array.pop()
+            num_children = len(last.get_children())
+            if degree[num_children] is None:
+                degree[num_children] = last
+            else:
+                temp = degree[num_children]
+                degree[num_children] = None
+                if last.val >= temp.val:
+                    temp.children.append(last)
+                    last.parent = temp
+                    roots_array.append(temp)
+                else:
+                    last.children.append(temp)
+                    temp.parent = last
+                    roots_array.append(last)
+        
+        self.roots = [root for root in degree if root is not None]
 
         # Finding the new best root
         self.min_node = self.find_best_root()
@@ -83,23 +94,33 @@ class FibHeap:
     def find_min(self) -> FibNode:
         return self.min_node
 
+    def make_root(self, node: FibNode) -> None:
+        node.parent = None
+        node.flag = False
+        self.roots.append(node)
+
+    def promote(self, node: FibNode) -> None:
+        if node.parent is not None:
+            parent_node = node.parent
+            parent_node.children.remove(node)
+            self.make_root(node)
+            self.min_node = self.find_best_root()
+            if parent_node.parent is not None:
+                if parent_node.flag:
+                    self.promote(parent_node)
+                else:
+                    parent_node.flag = True
+
     def decrease_priority(self, node: FibNode, new_val: int) -> None:
+        node.val = new_val
         if node.parent is None:
             if new_val < self.min_node.get_value_in_node():
                 self.min_node = node
                 for ind, root in enumerate(self.roots):
                     if root == node:
                         self.min_index = ind
-            node.val = new_val
         else:
-            if node.parent.parent is not None:
-                if not node.parent.get_flag():
-                    node.parent.flag = True
-                else:
-                    self.decrease_priority(node.parent, node.parent.val)
-            node.parent.children.remove(node)
-            self.roots.append(node)
-            node.parent = None
+            self.promote(node)
 
 
     # feel free to define new methods in addition to the above
